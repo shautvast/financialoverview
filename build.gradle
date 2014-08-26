@@ -1,0 +1,27 @@
+apply plugin: 'war'
+apply plugin: 'jetty'    
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+repositories{
+	mavenCentral()
+}
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+
+dependencies {
+	compile("org.springframework.boot:spring-boot-starter-web:1.1.5.RELEASE")
+	compile 'net.sf.opencsv:opencsv:2.3'
+	
+    testCompile 'junit:junit:4.11'
+    testCompile 'org.mockito:mockito-all:1.9.0-rc1'
+}
+
+jettyRun {
+	webDefaultXml = file("${project.webAppDir}/WEB-INF/jetty-webdefault.xml")
+
+	reload = "automatic" 
+    scanIntervalSeconds = 10
+}

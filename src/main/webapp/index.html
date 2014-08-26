@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+body {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	margin: auto;
+	font: 12px sans-serif;
+}
+
+form {
+	position: absolute;
+	right: 10px;
+	top: 10px;
+}
+
+.node {
+	border: solid 1px white;
+	line-height: 12px;
+	overflow: hidden;
+	position: absolute;
+	text-indent: 2px;
+}
+div{
+	text-align: center;
+	top: 50%;
+}
+</style>
+<form></form>
+<script src="js/d3.v3.min.js"></script>
+<script>
+
+/* does synchronous rest request*/
+function getData(url) {
+	if (window.XMLHttpRequest) {
+		xhr = new XMLHttpRequest();
+	} else {
+		xhr = new ActiveXObject("Microsoft.XMLHTTP");
+	}
+	if (xhr) {
+		xhr.open("GET", url, false);
+		xhr.setRequestHeader("Content-type", "application/json");
+		xhr.send();
+		var obj = eval("(" + xhr.responseText + ')');
+		return obj;
+	} else {
+		return false;
+	}
+}
+
+var margin = {top: 20, right: 10, bottom: 10, left: 200},
+    width = 1760 - margin.left - margin.right,
+    height = 800 - margin.top - margin.bottom;
+
+var color = d3.scale.category20c();
+
+var treemap = d3.layout.treemap()
+    .size([width, height])
+    .sticky(true)
+    .value(function(d) { return d.size; });
+
+var div = d3.select("body").append("div")
+    .style("position", "absolute")
+    .style("width", (width + margin.left + margin.right) + "px")
+    .style("height", (height + margin.top + margin.bottom) + "px")
+    .style("left", margin.left + "px")
+    .style("top", margin.top + "px");
+
+var posten=d3.select("body").append("table")
+	.style("position", "absolute")
+	.style("left", "20px")
+	.style("top", "20px");
+var onverklaardeTransacties=d3.select("body").append("table")
+.style("position", "absolute")
+.style("left", "20px")
+.style("top", "1200px");
+	
+var meta=getData("meta.json");
+
+d3.json("rest/transacties", function(error, data) {
+  var boekingen= [],
+      totaal = 0,
+  	  totaalVerklaard=0,
+  	  onverklaarde=[],
+  	  inkomsten=0;
+  for (var j=0; j<meta.length; j++){
+	  boekingen[meta[j].omschrijving]=0;
+  }
+
+  for (var i=0; i<data.length; i++) {
+	 if (data[i].bedrag<=0){
+		totaal-=data[i].bedrag;
+		var verklaard=false;
+		for (var j=0; j<meta.length; j++){		 
+			if (data[i].omschrijving.search(new RegExp(meta[j].q,"g") ) > -1){
+				totaalVerklaard+=Math.abs(data[i].bedrag);
+				verklaard=true;
+		 		//if (!meta[j].negeren){
+		 			boekingen[meta[j].omschrijving]+=Math.abs(data[i].bedrag);
+	 			//} 
+		 	}
+		 }
+		if (!verklaard){
+			onverklaarde.push(Math.floor(data[i].bedrag/100)+":"+data[i].omschrijving);
+		}
+	 } else {
+		 inkomsten+=data[i].bedrag;
+	 }
+	 
+  }	
+  root={}
+  root.name="root"
+  boeknodes=[];
+  var omschrijvingen = Object.keys(boekingen);
+  for (var i=0; i<omschrijvingen.length; i++){
+	  var node={};
+	  node.name=omschrijvingen[i];
+	  node.size=Math.floor(boekingen[omschrijvingen[i]]/100);
+	  boeknodes.push(node);
+  }
+  root.children=boeknodes;
+
+  var naam=function(a, b){return a.name.toLowerCase()>b.name.toLowerCase()?1:-1};
+  var bedrag=function(a, b){return a.size<b.size?1:-1;};
+  
+  posten.selectAll("entry").data(boeknodes.sort(naam))
+  	.enter()
+  	.append("tr").append("td")
+  	.text(function(d){return d.name+":"+d.size;});  
+  posten.append("tr").append("td").text("totaal: "+Math.floor(totaal/100));
+  posten.append("tr").append("td").text("verklaard: "+Math.floor(totaalVerklaard/100));
+  posten.append("tr").append("td").text("onverklaard: "+Math.floor((totaal-totaalVerklaard)/100));
+  posten.append("tr").append("td").text("inkomsten: "+Math.floor(inkomsten/100));
+  
+  onverklaardeTransacties.selectAll("entry").data(onverklaarde)
+  	.enter()
+  	.append("tr").append("td")
+  	.text(function(d){return d;});  
+  
+  var node = div.datum(root).selectAll(".node")
+      .data(treemap.nodes)
+    .enter().append("div")
+      .attr("class", "node")
+      .call(position)
+      .style("background", function(d) { return color(d.name); })
+      .text(function(d) { return d.name+"("+d.size+")"; });
+
+
+});
+
+function position() {
+  this.style("left", function(d) { return d.x + "px"; })
+      .style("top", function(d) { return d.y + "px"; })
+      .style("width", function(d) { return Math.max(0, d.dx - 1) + "px"; })
+      .style("height", function(d) { return Math.max(0, d.dy - 1) + "px"; });
+}
+
+</script>
